@@ -1,0 +1,61 @@
+﻿@using CogniFitRepo.Client.HttpServices
+@using CogniFitRepo.Shared.DataTransferObjects
+@foreach (var todaysWorkout in TodaysWorkouts)
+{
+    @foreach (var exerciseInstance in todaysWorkout.ExerciseInstanceDtos)
+    {
+        <table class="table table-sm mt-2">
+            <thead>
+                <tr>
+                    <th scope="col">@exerciseInstance.WorkoutSequenceNumber</th>
+                    <th scope="col" class="text-break">@exerciseInstance.ExerciseName</th>
+                    <th scope="col">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" @onclick="()=>ToggleIsComplete(exerciseInstance)"  checked="@(exerciseInstance.IsComplete)" title="Complete?">
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var property in exerciseInstance.ExerciseInstance_ExercisePropertyDtos)
+                {
+                    <tr>
+                        <th scope="row"></th>
+                        <td>@property.Name</td>
+                        <td><div class="row justify-content-end mx-2"><input type="number" class="form-control form-control-sm number-input" @bind-value=property.Amount></div></td
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+@code {
+    [Inject]
+    IExerciseInstanceHttpService ExerciseInstanceHttpService { get; set; }
+
+    [Parameter]
+    public EventCallback OnUpdateWorkouts { get; set; }
+
+    [Parameter]
+    public List<WorkoutDto> TodaysWorkouts { get; set; } = new List<WorkoutDto>();
+
+    public async Task UpdateWorkouts(List<WorkoutDto> workouts)
+    {
+        //write id of each workout to console
+        foreach (var workout in workouts)
+        {
+            Console.WriteLine(workout.Id);
+        }
+        TodaysWorkouts = workouts;
+        await Task.Delay(1000);
+        StateHasChanged();
+    }
+
+    private async Task ToggleIsComplete(ExerciseInstanceDto exerciseInstance)
+    {
+        exerciseInstance.IsComplete = !exerciseInstance.IsComplete;
+        await ExerciseInstanceHttpService.ToggleExerciseInstanceCompleted(exerciseInstance.Id);
+        await OnUpdateWorkouts.InvokeAsync();
+    }
+
+}

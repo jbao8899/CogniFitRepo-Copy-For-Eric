@@ -1,0 +1,174 @@
+﻿@using CogniFitRepo.Client.HttpServices;
+@using CogniFitRepo.Client.Shared.HelperClasses
+@using CogniFitRepo.Shared.DataTransferObjects
+@inject IHttpClientFactory ClientFactory
+
+<Modal @ref="modal">
+    <Title>
+        <h5 class="modal-title">@($"{workoutProgramName} - {currentWorkout.WorkoutDateTime.DayOfWeek}")</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close" @onclick="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </Title>
+    <Body>
+        <div class="row">
+            <div class="col-7 m-3">
+                <div class="bg-purple rounded-pill p-1"><h6 class="text-white px-1 m-0">Search for Exercises</h6></div>
+                <SearchBox @ref=searchBox Height="400px" ColumnSize=6 OnAddExercise="(ex)=>AddExercise(ex)">
+                </SearchBox>
+            </div>
+            <div class="col m-3">
+                <div class="bg-purple rounded-pill p-1"><h6 class="text-white px-1 m-0">Your Exercises</h6></div>
+                <ExerciseInstanceTable CurrentWorkout=currentWorkout OnAddProperty="@((args) => AddProperty(args.Item1, args.Item2))"
+                OnRemoveExercise=RemoveExercise OnRemoveProperty="@((args) => RemoveProperty(args.Item1, args.Item2))"></ExerciseInstanceTable>
+            </div>
+        </div>
+    </Body>
+    <Footer>
+        <button type="button" class="btn btn-primary" @onclick="SaveWorkout">Save changes</button>
+        <button type="button" class="btn btn-primary" @onclick="DeleteWorkout">Delete</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="Close">Close</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter]
+    public EventCallback OnSaveWorkout { get; set; }
+
+    [Inject]
+    IWorkoutHttpService WorkoutHttpService { get; set; }
+
+    [Inject]
+    IExerciseHttpService ExerciseHttpService { get; set; }
+
+    [Inject]
+    IExerciseInstanceHttpService ExerciseInstanceHttpService { get; set; }
+
+    [Inject]
+    IExercisePropertyHttpService ExercisePropertyHttpService { get; set; }
+
+    Modal modal;
+    SearchBox searchBox;
+
+    DateTime time;
+    DateTime generateFrom;
+    DateTime generateUntil;
+
+    string workoutProgramName;
+    WorkoutDto currentWorkout;
+    List<ExerciseInstanceDto> oldExerciseInstanceDtos = new List<ExerciseInstanceDto>();
+
+    protected override async void OnInitialized()
+    {
+        resetValues();
+    }
+
+    private void resetValues()
+    {
+        time = DateTime.Now;
+        generateFrom = DateTime.Now;
+        generateUntil = DateTime.Now;
+        workoutProgramName = "Default Error";
+        currentWorkout = new WorkoutDto() { Notes = "Default", ExerciseInstanceDtos = new List<ExerciseInstanceDto>() };
+    }
+
+    //Adds an exercise to the workout
+    private async void AddExercise(ExerciseDto exercise)
+    {
+        //add exercise to workout
+        ExerciseInstanceDto newExerciseInstance = new ExerciseInstanceDto()
+        {
+            ExerciseId = exercise.Id,
+            ExerciseName = exercise.Name,
+            WorkoutSequenceNumber = currentWorkout.ExerciseInstanceDtos.Count() + 1,
+            ExerciseInstance_ExercisePropertyDtos = new List<ExerciseInstance_ExercisePropertyDto>()
+        };
+        ((List<ExerciseInstanceDto>)currentWorkout.ExerciseInstanceDtos).Add(newExerciseInstance);
+
+        //var response = await ExerciseInstanceHttpService.CreateExerciseInstanceForWorkout(currentWorkout.Id, newExerciseInstance);
+    }
+
+    //Removes an exercise from the workout
+    private async void RemoveExercise(ExerciseInstanceDto exercise)
+    {
+        //remove exercise from workout
+        ((List<ExerciseInstanceDto>)currentWorkout.ExerciseInstanceDtos).Remove(exercise);
+    }
+
+    //Adds a property to an exercise
+    private async void AddProperty(ExerciseInstanceDto exercise, ExercisePropertyDto property)
+    {
+        //add property to exercise
+        ExerciseInstance_ExercisePropertyDto newExerciseProperty = new ExerciseInstance_ExercisePropertyDto()
+        {
+            ExercisePropertyId = property.Id ?? 0,
+            Name = property.Name,
+            Amount = 0
+        };
+        ((List<ExerciseInstance_ExercisePropertyDto>)exercise.ExerciseInstance_ExercisePropertyDtos).Add(newExerciseProperty);
+    }
+
+    //Removes a property from an exercise
+    private async void RemoveProperty(ExerciseInstanceDto exercise, ExerciseInstance_ExercisePropertyDto property)
+    {
+        //remove property from exercise
+        ((List<ExerciseInstance_ExercisePropertyDto>)exercise.ExerciseInstance_ExercisePropertyDtos).Remove(property);
+    }
+
+
+    //Opens the modal and assigns the time to the time selected in the scheduler, and assigns the current workoutProgram
+    public void Open(SchedulerAppointmentSelectEventArgs<AppointmentObject> args)
+    {
+        workoutProgramName = args.Data.WorkoutProgramName;
+        currentWorkout = args.Data.Workout;
+        oldExerciseInstanceDtos = currentWorkout.ExerciseInstanceDtos.ToList();
+        time = args.Start;
+        generateFrom = args.Start;
+        generateUntil = args.Start;
+        modal.Open();
+    }
+
+    //Closes the modal and resets the week dictionary and resets currentWorkout
+    public async Task Close()
+    {
+        OnSaveWorkout.InvokeAsync();
+        resetValues();
+        modal.Close();
+    }
+
+    //Saves workout to database
+    async Task SaveWorkout()
+    {
+        //workaround for lack of deep workout put endpoint
+        foreach (ExerciseInstanceDto exerciseInstance in oldExerciseInstanceDtos)
+        {
+            await ExerciseInstanceHttpService.DeleteExerciseInstance(exerciseInstance.Id);
+        }
+        foreach (ExerciseInstanceDto exerciseInstance in currentWorkout.ExerciseInstanceDtos)
+        {
+            await ExerciseInstanceHttpService.CreateExerciseInstanceForWorkout(currentWorkout.Id, exerciseInstance);
+        }
+        //if all exercise instances are isComplete, set workout to isComplete
+        if (currentWorkout.ExerciseInstanceDtos.All(x => x.IsComplete))
+        {
+            currentWorkout.IsComplete = true;
+        }
+        else
+        {
+            currentWorkout.IsComplete = false;
+        }
+
+
+        await WorkoutHttpService.UpdateWorkout(currentWorkout.Id, currentWorkout)
+        .ContinueWith(x => OnSaveWorkout.InvokeAsync());
+        Close();
+    }
+
+    //Deletes workout from database
+    async Task DeleteWorkout()
+    {
+        await WorkoutHttpService.DeleteWorkout(currentWorkout.Id)
+        .ContinueWith(x => OnSaveWorkout.InvokeAsync());
+        Close();
+    }
+}

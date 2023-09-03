@@ -1,0 +1,136 @@
+﻿@page "/profile"
+@inject DialogService DialogService
+
+  <PageTitle>CogniFit Profile</PageTitle>
+
+<RadzenCard>
+
+    <div class="card-header" style="background-color: #5F54DE; color: white;">
+        <h4 class="card-title">Profile</h4>
+    </div>
+    
+    <RadzenCard>
+    <div style="position: relative;">
+        <div style="position: absolute; top: 12px; right: 12px;">
+            <RadzenButton Text="Edit Profile" ButtonStyle="ButtonStyle.Primary" Click=@ShowInlineDialog />
+        </div>
+    </div>
+
+    <div class="c">
+        <div class="col-md-2">
+            <RadzenImage Path="@user.Icon" />
+        </div>
+        <div class="col-md-10">
+            <h3>@user.Name</h3>
+            <RadzenProgressBar Value="@user.XP" Max="@user.MaxXP" />
+            <p>Level: @user.Level</p>
+        </div>
+    </div>
+</RadzenCard>
+
+<RadzenCard>
+    <div class="card-header" style="background-color: #5F54DE; color: white;">
+        <h4 class="card-title">7 Day Bonus</h4>
+    </div>
+    <div class="row">
+        @for (int i = 1; i <= 7; i++)
+        {
+            <div class="col-md-1">
+                <RadzenCheckBox TValue="bool" Value="@user.LoginDays[i - 1]" Disabled = "true"/>
+                <p>Day @i</p>
+            </div>
+        }
+    </div>
+</RadzenCard>
+
+<!--Tabs area-->
+<RadzenCard Variant = "Variant.Filled">
+    <RadzenTabs>
+        <Tabs>
+            <RadzenTabsItem Text="Goals">
+                <!--insert goals content-->
+                <p>Goals</p>
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Planned Workouts">
+                <!--planned workout content-->
+                <p>Planned Workouts</p>
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</RadzenCard>
+</RadzenCard>
+
+
+<RadzenCard>
+    <div class="card-header" style="background-color: #5F54DE; color: white;">
+        <h4 class="card-title">Badges</h4>
+    </div>
+    <div class="row">
+        @foreach (var badge in user.Badges)
+        {
+            <div class="col-md-2">
+                <!--placeholder badges and status images-->
+                <RadzenImage Path="@badge.Icon" />
+                <p>@(badge.IsMet ? "Unlocked" : "Not unlocked")</p>
+            </div>
+        }
+    </div>
+</RadzenCard>
+
+@code {
+
+  async Task ShowInlineDialog()
+{
+    var result = await DialogService.OpenAsync("Edit Profile", ds =>
+    @<RadzenStack Gap="1.5rem">
+        <RadzenLabel Text="Username" />
+        <RadzenTextBox @bind-Value="@user.Name" />
+        <RadzenLabel Text="Icon URL" />
+        <RadzenTextBox @bind-Value="@user.Icon" />
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenStack Orientation="Orientation.Horizontal">
+                <RadzenButton Text="Save" Click="() => ds.Close(true)" Style="width: 80px;" />
+                <RadzenButton Text="Cancel" Click="() => ds.Close(false)" ButtonStyle="ButtonStyle.Light" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenStack>);
+}
+
+    public class Badge
+    {
+        public string Icon { get; set; }
+        public bool IsMet { get; set; }
+    }
+
+   
+    public class User
+    {
+        public string Icon { get; set; }
+        public string Name { get; set; }
+        public int XP { get; set; }
+        public int MaxXP { get; set; }
+        public int Level { get; set; }
+        public List<Badge> Badges { get; set; }
+        public bool[] LoginDays { get; set; }
+    }
+
+    User user = new User()
+    {
+        Icon = "https://via.placeholder.com/150",
+        Name = "John Doe",
+        XP = 75,
+        MaxXP = 100,
+        Level = 5,
+        Badges = new List<Badge>()
+        {
+            new Badge() { Icon = "https://via.placeholder.com/50", IsMet = true },
+            new Badge() { Icon = "https://via.placeholder.com/50", IsMet = false },
+            new Badge() { Icon = "https://via.placeholder.com/50", IsMet = true },
+            new Badge() { Icon = "https://via.placeholder.com/50", IsMet = false },
+            new Badge() { Icon = "https://via.placeholder.com/50", IsMet = true },
+            new Badge() { Icon = "https://via.placeholder.com/50", IsMet = false },
+        },
+        LoginDays = new bool[] { true, true, true, false, false, false, false }
+    };
+    
+}

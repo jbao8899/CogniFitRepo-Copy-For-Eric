@@ -1,0 +1,42 @@
+﻿@using CogniFitRepo.Client.HttpServices;
+@using CogniFitRepo.Shared.DataTransferObjects;
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+
+@inject NavigationManager Navigation
+@inject SignOutSessionStateManager SignOutManager
+
+<AuthorizeView>
+    <Authorized>
+        @if (user != null && user.PortraitPath != null)
+        {
+            <img width="30px" height="auto" class="rounded-circle" src=@($"/profilepictures/{user.PortraitPath}") />
+        }
+        <a href="authentication/profile">Hello, @context.User.Identity?.Name!</a>
+        <button class="nav-link btn btn-link" @onclick="BeginSignOut">Log out</button>
+    </Authorized>
+    <NotAuthorized>
+        <a href="authentication/register">Register</a>
+        <a href="authentication/login">Log in</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code{
+    [Inject]
+    IApplicationUserHttpService ApplicationUserHttpService { get; set; }
+
+    private ApplicationUserDto user;
+
+    private async Task BeginSignOut(MouseEventArgs args)
+    {
+        await SignOutManager.SetSignOutState();
+        Navigation.NavigateTo("authentication/logout");
+    }
+
+    override protected async Task OnInitializedAsync()
+    {
+        this.user = (await ApplicationUserHttpService.GetCurrentApplicationUser()).Data;
+        await Task.Delay(1);
+        StateHasChanged();
+    }
+}

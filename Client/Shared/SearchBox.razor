@@ -1,0 +1,142 @@
+﻿
+@using CogniFitRepo.Shared.DataTransferObjects
+@using CogniFitRepo.Client.HttpServices
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Json
+@inject Radzen.DialogService DialogService
+
+<RadzenCard Variant="Radzen.Variant.Filled">
+  <div class="card-header rounded-pill">
+   
+    <div class="input-group">
+        <input type="text" value="" @oninput="(e) => Search(1, e.Value.ToString())" class="form-control rounded-pill">
+    </div>
+    
+</div>
+
+
+    <div class="card-body scroll" style="height: @(Height);">
+        @if (exerciseSearchResults == null)
+        {
+            <div class="floating-spinner">
+                <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+            </div>
+        }
+        else
+        {
+            <div class = "row">
+            @foreach (ExerciseDto exercise in exerciseSearchResults)
+            {
+                <div class="col-@ColumnSize">
+                    <div class="row">
+                        <div class="col px-0">
+                            <RadzenAccordion>
+                                <Items>
+                                    <RadzenAccordionItem Text="@exercise.Name" style="background-color: #5F54DE; -webkit-text-fill-color: white; ">
+                                        <div class="card-body">
+                                            @if(exercise.ImagePaths is not null)
+                                            {
+                                               <div class="row">
+                                                    @foreach (var imagePath in exercise.ImagePaths)
+                                                    {
+                                                        <div class = "col-12 col-lg-6">
+                                                            <img src="/exercises/@imagePath" alt="wwwroot/exercises/@imagePath" style="max-width: 100%;" />
+                                                        </div>
+                                                    }
+                                                </div>
+                                                                        }
+                                            <div><span class="label">Level:</span> @exercise.ExerciseLevel</div>
+                                            <div><span class="label">Category:</span> @exercise.ExerciseCategory</div>
+                                            <div><span class="label">Instructions:</span> @exercise.Instructions</div>
+                                            <div><span class="label">Force:</span> @exercise.Force</div>
+                                            <div><span class="label">Mechanic:</span> @exercise.Mechanic</div>
+                                            <div><span class="label">Equipment:</span> @exercise.Equipment</div>
+                                            <div><span class="label">Primary Muscles:</span></div>
+                                            <ul>
+                                                @foreach (var muscle in exercise.PrimaryMuscles)
+                                                {
+                                                    <li>@muscle</li>
+                                                }
+                                            </ul>
+                                            <div><span class="label">Secondary Muscles:</span></div>
+                                            <ul>
+                                                @foreach (var muscle in exercise.SecondaryMuscles)
+                                                {
+                                                    <li>@muscle</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    </RadzenAccordionItem>
+                                </Items>
+                            </RadzenAccordion>
+                        </div>
+                        @if (withButton)
+                        {
+                            <div class="col-2 px-0">
+                                <button class="btn btn-lg btn-outline-success align-top p-1 h-100" @onclick='()=>AddExercise(exercise)'>+</button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            </div>
+        }
+    </div>
+</RadzenCard>
+
+
+@code {
+    [Inject]
+    IExerciseHttpService ExerciseHttpService { get; set; }
+
+    [Parameter]
+    public EventCallback<ExerciseDto> OnAddExercise { get; set; }
+
+    [Parameter]
+    public string Height { get; set; } = "100%";
+
+    [Parameter]
+    public int ColumnSize { get; set; } = 4;
+
+    public bool withButton = false;
+
+    public List<ExerciseDto> allExercises = new List<ExerciseDto>();
+    public List<ExerciseDto> exerciseSearchResults;
+
+    protected override async void OnInitialized()
+    {
+        allExercises = new List<ExerciseDto>();
+        var response = await ExerciseHttpService.GetExercises();
+        allExercises = response.Data;
+        exerciseSearchResults = allExercises.ToList();
+        StateHasChanged();
+    }
+
+    //button had to be moved into child component to be able to access exercise
+    //this is a workaround to be able to use the same component for both search and add
+    //if OnAddExercise is not set, then the button will not be rendered
+    protected override void OnParametersSet()
+    {
+        if(OnAddExercise.HasDelegate == false)
+        {
+            withButton = false;
+        }
+        else
+        {
+            withButton = true;
+        }
+    }
+
+    public async Task Search(int x, string searchQuery)
+    {
+        exerciseSearchResults = allExercises.Where(x => x.Name.ToLower().Contains(searchQuery.ToLower())).ToList();
+        await Task.Delay(x);
+    }
+
+    public async Task AddExercise(ExerciseDto exercise)
+    {
+        await OnAddExercise.InvokeAsync(exercise);
+    }
+}
+
+

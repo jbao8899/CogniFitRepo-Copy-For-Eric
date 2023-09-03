@@ -1,0 +1,111 @@
+﻿@using CogniFitRepo.Client.Shared.HelperClasses;
+
+<RadzenScheduler @ref=@scheduler Data="@CurrentAppointments" TItem="AppointmentObject" StartProperty="Start" EndProperty="End" TextProperty="Text"
+                 SlotRender="@SlotRender" AppointmentRender="@AppointmentRender" SlotSelect="@SlotSelect" AppointmentSelect="@AppointmentSelect"
+                 style=@($"height: {Height}")>
+    <Template Context="data">
+        <strong>@data.Text</strong>
+    </Template>
+    <ChildContent>
+        @if(MonthViewOn)
+        {
+            <RadzenMonthView />
+        }
+        @if(WeekViewOn)
+        {
+            <RadzenWeekView />
+        }
+    </ChildContent>
+</RadzenScheduler>
+@code {
+    [Parameter]
+    public EventCallback<SchedulerSlotSelectEventArgs> OnSlotSelect { get; set; }
+
+    [Parameter]
+    public EventCallback<SchedulerAppointmentSelectEventArgs<AppointmentObject>> OnAppointmentSelect { get; set; }
+
+    [Parameter]
+    public List<AppointmentObject> CurrentAppointments { get; set; }
+
+    [Parameter]
+    public DateTime? StartDate { get; set; }
+
+    [Parameter]
+    public DateTime? EndDate { get; set; }
+
+    [Parameter]
+    public bool MonthViewOn { get; set; } = true;
+
+    [Parameter]
+    public bool WeekViewOn { get; set; } = true;
+
+    [Parameter]
+    public string Height { get; set; } = "700px";
+
+    RadzenScheduler<AppointmentObject> scheduler;
+
+    void SlotRender(SchedulerSlotRenderEventArgs args)
+    {
+        //if startdate and enddate were passed in
+        if (StartDate != null && EndDate != null)
+        {
+            //if the date is between the start and end date
+            if (args.Start.Date >= StartDate && args.End.Date <= EndDate)
+            {
+                //highlight the date
+                args.Attributes["style"] = "background: rgba(255,220,40,.1);";
+            }
+        }
+
+        // if (args.Start.Date >= workoutPrograms[appointmentListsIndex - 1].StartDate && args.Start.Date <= workoutPrograms[appointmentListsIndex - 1].EndDate)
+        // {
+        //     args.Attributes["style"] = "background: rgba(255,220,40,.1);";
+        // }
+
+
+        // Highlight today in month view
+        if (args.Start.Date == DateTime.Today)
+        {
+            args.Attributes["style"] = "background: rgba(255,220,40,.2);";
+        }
+
+    }
+
+    void AppointmentRender(SchedulerAppointmentRenderEventArgs<AppointmentObject> args)
+    {
+        // Highlight appointment with title birthday
+        if (args.Data.Text == "Birthday")
+        {
+            args.Attributes["style"] = "background: red;";
+        }
+
+        //muted blue color for appointments corresponding to workouts that are in the past
+        if (args.Data.Workout != null && args.Data.Workout.WorkoutDateTime.Date < DateTime.Today)
+        {
+            args.Attributes["style"] = "background: rgb(101, 134, 163)";
+        }
+
+        // Black color for appoiintments corresponding to workouts that are IsCompleted
+        if (args.Data.Workout != null && args.Data.Workout.IsComplete)
+        {
+            args.Attributes["style"] = "background: green;";
+        }
+
+        //green color for appointments corresponding to workouts that are today
+        if (args.Data.Workout != null && args.Data.Workout.WorkoutDateTime.Date == DateTime.Today)
+        {
+            args.Attributes["style"] = "background: red;";
+        }
+
+    }
+
+    void SlotSelect(SchedulerSlotSelectEventArgs args)
+    {
+        OnSlotSelect.InvokeAsync(args);
+    }
+
+    void AppointmentSelect(SchedulerAppointmentSelectEventArgs<AppointmentObject> args)
+    {
+        OnAppointmentSelect.InvokeAsync(args);
+    }
+}

@@ -1,0 +1,425 @@
+﻿@using CogniFitRepo.Client.HttpServices;
+@using CogniFitRepo.Shared.DataTransferObjects
+@inject IHttpClientFactory ClientFactory
+
+<Modal @ref="modal">
+    <Title>
+        @if(isNewProgram)
+        {
+            <input type="text" @bind-value=workoutProgram.Name class="form-control" placeholder="New Workout Program">
+        }
+        else
+        {
+            <h5 class="modal-title">@workoutProgram.Name</h5>
+        }
+        <button type="button" class="btn btn-outline-danger" aria-label="Close" @onclick="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </Title>
+    <Body>
+        <div class="row">
+            <div class="col-7 m-3 mt-0">
+                <div class="row bg-white rounded-10 my-1">
+                    <div class="col-5">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">From</span>
+                            <input type="date" @bind-value=editWorkoutProgramStartDate class="form-control date-input">
+                        </div>
+                    </div>
+                    <div class="col-5">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">Until</span>
+                            <input type="date" @bind-value=editWorkoutProgramEndDate class="form-control date-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="text-danger text-center">
+                    @workoutProgramDatesFeedback
+                </div>
+                <div class="row bg-white rounded-10 my-0">
+                    <div class="bg-purple rounded-pill p-1"><h6 class="text-white px-1 m-0">Scheduling</h6></div>
+                    <div class="col">
+                        <div class="btn-group my-3" role="group">
+                            <button class="btn btn-outline-success @(!weeklyTab ? "active" : "")" @onclick="()=>TabWeekly(false)">Today</button>
+                            <button class="btn btn-outline-success @(weeklyTab ? "active" : "")" @onclick="()=>TabWeekly(true)">Weekly</button>
+                        </div>
+                        <div class="row @(!weeklyTab ? "" : "d-none")">
+                            @* Unimplemented time scheduling
+                            <div class="col">
+                                <div class="input-group mb-3">
+                                    <span class="input-group-text">Time</span>
+                                    <input type="time" @bind-value=time class="form-control time-input" placeholder="Time">
+                                </div>
+                            </div> *@
+                        </div>
+                        <div class="row @(weeklyTab ? "" : "d-none")">
+                            <div class="row">
+                                @* Unimplemented time scheduling
+                                <div class="col-4">
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text">Time</span>
+                                        <input type="time" @bind-value=time class="form-control time-input" placeholder="Time">
+                                    </div>
+                                </div>*@
+                                <div class="col">
+                                    <div class="input-group mb-3">
+                                        <button class="btn btn-outline-success @(week["Mon"] ? "active" : "")" @onclick='()=>ToggleWeek("Mon")'>Mon</button>
+                                        <button class="btn btn-outline-success @(week["Tue"] ? "active" : "")" @onclick='()=>ToggleWeek("Tue")'>Tue</button>
+                                        <button class="btn btn-outline-success @(week["Wed"] ? "active" : "")" @onclick='()=>ToggleWeek("Wed")'>Wed</button>
+                                        <button class="btn btn-outline-success @(week["Thu"] ? "active" : "")" @onclick='()=>ToggleWeek("Thu")'>Thu</button>
+                                        <button class="btn btn-outline-success @(week["Fri"] ? "active" : "")" @onclick='()=>ToggleWeek("Fri")'>Fri</button>
+                                        <button class="btn btn-outline-success @(week["Sat"] ? "active" : "")" @onclick='()=>ToggleWeek("Sat")'>Sat</button>
+                                        <button class="btn btn-outline-success @(week["Sun"] ? "active" : "")" @onclick='()=>ToggleWeek("Sun")'>Sun</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row justify-content-start">
+                                <div class="col-5">
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text">From</span>
+                                        <input type="date" @bind-value=generateFrom class="form-control date-input">
+                                    </div>
+                                </div>
+                                <div class="col-5">
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text">Until</span>
+                                        <input type="date" @bind-value=generateUntil class="form-control date-input">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-danger text-center">
+                                @workoutGenerateDatesFeedback
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row bg-white rounded-10 my-2 search-box">
+                    <SearchBox @ref=searchBox Height="300px" ColumnSize=6 OnAddExercise="(ex)=>AddExercise(ex)">
+                    </SearchBox>
+                </div>
+            </div>
+            <div class="col m-3 bg-white rounded-10">
+                <div class="bg-purple rounded-pill p-1"><h6 class="text-white px-1 m-0">Your Exercises</h6></div>
+                <ExerciseInstanceTable CurrentWorkout=currentWorkout OnAddProperty="@((args) => AddProperty(args.Item1, args.Item2))"
+                OnRemoveExercise=RemoveExercise OnRemoveProperty="@((args) => RemoveProperty(args.Item1, args.Item2))"></ExerciseInstanceTable>
+            </div>
+        </div>
+    </Body>
+    <Footer>
+        <button type="button" class="btn btn-primary" @onclick="SaveWorkout">Save changes</button>
+        <button type="button" class="btn btn-secondary" @onclick="Close">Close</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter]
+    public EventCallback OnSaveWorkout { get; set; }
+
+    [Inject]
+    IWorkoutProgramHttpService WorkoutProgramHttpService { get; set; }
+
+    [Inject]
+    IWorkoutHttpService WorkoutHttpService { get; set; }
+
+    [Inject]
+    IExerciseHttpService ExerciseHttpService { get; set; }
+
+    [Inject]
+    IExercisePropertyHttpService ExercisePropertyHttpService { get; set; }
+
+    Modal modal;
+    SearchBox searchBox;
+    bool weeklyTab = false;
+    bool isNewProgram = false;
+
+    string workoutProgramDatesFeedback = "";
+    string workoutGenerateDatesFeedback = "";
+
+    List<ExercisePropertyDto> exerciseProperties;
+
+    DateTime time;
+    DateTime generateFrom;
+    DateTime generateUntil;
+
+    DateTime editWorkoutProgramStartDate = DateTime.Now;
+    DateTime editWorkoutProgramEndDate = DateTime.Now;
+
+    WorkoutProgramDto workoutProgram = new WorkoutProgramDto()
+    {
+        Name = "New Workout Program",
+        StartDate = DateTime.Today.AddYears(-1),
+        EndDate = DateTime.Today.AddYears(1),
+        WorkoutDtos = new List<WorkoutDto>(),
+        Notes = ""
+    };
+    WorkoutDto currentWorkout = new WorkoutDto() { Notes = "Default", ExerciseInstanceDtos = new List<ExerciseInstanceDto>() };
+    Dictionary<string, bool> week;
+
+    protected override async void OnInitialized()
+    {
+        resetValues();
+        exerciseProperties = (await ExercisePropertyHttpService.GetExerciseProperties()).Data;
+    }
+
+    private void resetValues()
+    {
+        time = DateTime.Now;
+        generateFrom = DateTime.Now;
+        generateUntil = DateTime.Now;
+        currentWorkout = new WorkoutDto() { Notes = "Default", ExerciseInstanceDtos = new List<ExerciseInstanceDto>() };
+        workoutProgram = new WorkoutProgramDto()
+        {
+            Name = "New Workout Program",
+            StartDate = DateTime.Today.AddYears(-1),
+            EndDate = DateTime.Today.AddYears(1),
+            WorkoutDtos = new List<WorkoutDto>(),
+            Notes = ""
+        };
+        week = new Dictionary<string, bool>()
+        {
+            { "Mon", false },
+            { "Tue", false },
+            { "Wed", false },
+            { "Thu", false },
+            { "Fri", false },
+            { "Sat", false },
+            { "Sun", false }
+        };
+    }
+
+    //Adds an exercise to the workout
+    private void AddExercise(ExerciseDto exercise)
+    {
+        //add exercise to workout
+        ((List<ExerciseInstanceDto>)currentWorkout.ExerciseInstanceDtos).Add
+        (
+            new ExerciseInstanceDto()
+            {
+                    ExerciseId = exercise.Id,
+                    ExerciseName = exercise.Name,
+                    WorkoutSequenceNumber = currentWorkout.ExerciseInstanceDtos.Count() + 1,
+                    ExerciseInstance_ExercisePropertyDtos = new List<ExerciseInstance_ExercisePropertyDto>()
+               }
+        );
+    }
+
+    //Removes an exercise from the workout
+    private void RemoveExercise(ExerciseInstanceDto exercise)
+    {
+        //remove exercise from workout
+        ((List<ExerciseInstanceDto>)currentWorkout.ExerciseInstanceDtos).Remove(exercise);
+    }
+
+    //Adds a property to an exercise
+    private void AddProperty(ExerciseInstanceDto exercise, ExercisePropertyDto property)
+    {
+        //add property to exercise
+        ((List<ExerciseInstance_ExercisePropertyDto>)exercise.ExerciseInstance_ExercisePropertyDtos).Add(
+            new ExerciseInstance_ExercisePropertyDto()
+            {
+                ExercisePropertyId = property.Id ?? 0,
+                Name = property.Name,
+                Amount = 0
+            }
+        );
+    }
+
+    //Removes a property from an exercise
+    private void RemoveProperty(ExerciseInstanceDto exercise, ExerciseInstance_ExercisePropertyDto property)
+    {
+        //remove property from exercise
+        ((List<ExerciseInstance_ExercisePropertyDto>)exercise.ExerciseInstance_ExercisePropertyDtos).Remove(property);
+    }
+
+    //Toggles the day of the week in the week dictionary
+    private void ToggleWeek(string day)
+    {
+        week[day] = !week[day];
+    }
+
+    //Toggles the tab between weekly and daily
+    private void TabWeekly(bool tab)
+    {
+        weeklyTab = tab;
+    }
+
+    //Opens the modal and assigns the time to the time selected in the scheduler, and creates a default workout program
+    public void Open(SchedulerSlotSelectEventArgs args)
+    {
+        isNewProgram = true;
+        editWorkoutProgramStartDate = DateTime.Today < args.Start ? DateTime.Today : args.Start;
+        editWorkoutProgramEndDate = DateTime.Today > args.Start ? DateTime.Today : args.Start;
+        OpenHelper(args);
+    }
+
+
+    //Opens the modal and assigns the time to the time selected in the scheduler, and assigns the current workoutProgram
+    public void Open(SchedulerSlotSelectEventArgs args, WorkoutProgramDto workoutProgram)
+    {
+        isNewProgram = false;
+        this.workoutProgram = workoutProgram;
+        editWorkoutProgramStartDate = workoutProgram.StartDate;
+        editWorkoutProgramEndDate = workoutProgram.EndDate;
+        OpenHelper(args);
+    }
+
+    private void OpenHelper(SchedulerSlotSelectEventArgs args)
+    {
+        week[args.Start.DayOfWeek.ToString().Substring(0, 3)] = true;
+        time = args.Start;
+        generateFrom = args.Start;
+        generateUntil = args.Start;
+        workoutProgramDatesFeedback = "";
+        workoutGenerateDatesFeedback = "";
+        modal.Open();
+    }
+
+    //Closes the modal and resets the week dictionary and resets currentWorkout
+    public void Close()
+    {
+        resetValues();
+        modal.Close();
+    }
+
+    //Saves workout to database
+    List<WorkoutDto> CreateWorkoutList()
+    {
+        List<WorkoutDto> workouts = new List<WorkoutDto>();
+        if (weeklyTab)
+        {
+            //generate weekly workout from generateFrom to generateUntil
+            DateTime day = generateFrom;
+            List<DateTime> firstDaysOfWeek = new List<DateTime>();
+
+            //Find dates for specified days of week in week dictionary
+            while (day < generateFrom.AddDays(7))
+            {
+                if (week[day.DayOfWeek.ToString().Substring(0, 3)])
+                {
+                    firstDaysOfWeek.Add(day);
+                }
+                day = day.AddDays(1);
+            }
+
+            //increment by 7 days for each date in dates, until generateUntil and save workout
+            foreach (DateTime dayOfWeek in firstDaysOfWeek)
+            {
+                DateTime currDay = dayOfWeek;
+                while (currDay <= generateUntil)
+                {
+                    //save workout to list
+                    workouts.Add(new WorkoutDto() { WorkoutDateTime = currDay, Notes = currentWorkout.Notes, ExerciseInstanceDtos = currentWorkout.ExerciseInstanceDtos });
+                    currDay = currDay.AddDays(7);
+                }
+            }
+        }
+        else
+        {
+            //save one workout
+            currentWorkout.WorkoutDateTime = time;
+            workouts.Add(currentWorkout);
+        }
+        return workouts;
+    }
+
+    async Task SaveWorkout()
+    {
+        if (!SaveWorkoutValidation())
+        {
+            return;
+        }
+
+        List<WorkoutDto> newWorkouts = CreateWorkoutList();
+        workoutProgram.StartDate = editWorkoutProgramStartDate;
+        workoutProgram.EndDate = editWorkoutProgramEndDate;
+
+        //if all exercise instances are isComplete, set workout to isComplete
+        foreach (WorkoutDto workout in newWorkouts)
+        {
+            workout.IsComplete = true;
+            foreach (ExerciseInstanceDto exercise in workout.ExerciseInstanceDtos)
+            {
+                if (!exercise.IsComplete)
+                {
+                    workout.IsComplete = false;
+                    break;
+                }
+            }
+        }
+
+        //save workoutProgram to database if new program, else save workouts to current workoutProgram
+        if (isNewProgram)
+        {
+            //add workouts to workoutProgram
+            ((List<WorkoutDto>)workoutProgram.WorkoutDtos).AddRange(newWorkouts);
+            await WorkoutProgramHttpService.CreateWorkoutProgram(workoutProgram)
+            .ContinueWith(x => OnSaveWorkout.InvokeAsync());
+        }
+        else
+        {
+            await WorkoutProgramHttpService.UpdateWorkoutProgram(workoutProgram.Id, workoutProgram)
+                .ContinueWith(x => WorkoutHttpService.CreateWorkoutsForWorkoutProgram(workoutProgram.Id, newWorkouts)
+                    .ContinueWith(x => OnSaveWorkout.InvokeAsync())
+                );
+        }
+        Close();
+    }
+
+    bool SaveWorkoutValidation()
+    {
+        workoutProgramDatesFeedback = "";
+        workoutGenerateDatesFeedback = "";
+        bool valid = true;
+
+        if (editWorkoutProgramStartDate > editWorkoutProgramEndDate)
+        {
+            workoutProgramDatesFeedback = $"{workoutProgramDatesFeedback}\nStart date must be before end date";
+            valid = false;
+        }
+        //if (editWorkoutProgramStartDate > DateTime.Today)
+        //{
+        //    workoutProgramDatesFeedback = $"{workoutProgramDatesFeedback}\nStart date must be before today";
+        //    valid = false;
+        //}
+        if (editWorkoutProgramEndDate < DateTime.Today)
+        {
+            workoutProgramDatesFeedback = $"{workoutProgramDatesFeedback}\nEnd date must be after today";
+            valid = false;
+        }
+        //if workout program has a workout with a date that is before the start date
+        if (workoutProgram.WorkoutDtos.Any(x => x.WorkoutDateTime < editWorkoutProgramStartDate))
+        {
+            workoutProgramDatesFeedback = $"{workoutProgramDatesFeedback}\nWorkout program already has workouts before this start date";
+            valid = false;
+        }
+        //if workout program has a workout with a date that is after the end date
+        if (workoutProgram.WorkoutDtos.Any(x => x.WorkoutDateTime > editWorkoutProgramEndDate))
+        {
+            workoutProgramDatesFeedback = $"{workoutProgramDatesFeedback}\nWorkout program already has workouts after this end date";
+            valid = false;
+        }
+        if (weeklyTab)
+        {
+            //if generateUntil is before generateFrom
+            if (generateUntil < generateFrom)
+            {
+                workoutGenerateDatesFeedback = $"{workoutGenerateDatesFeedback}\nGenerate until must be after generate from";
+                valid = false;
+            }
+            //if generateUntil is not between start and end date
+            if (generateUntil < editWorkoutProgramStartDate || generateUntil > editWorkoutProgramEndDate)
+            {
+                workoutGenerateDatesFeedback = $"{workoutGenerateDatesFeedback}\nGenerate until must be between start and end date";
+                valid = false;
+            }
+            //if generateFrom is not between start and end date
+            if (generateFrom < editWorkoutProgramStartDate || generateFrom > editWorkoutProgramEndDate)
+            {
+                workoutGenerateDatesFeedback = $"{workoutGenerateDatesFeedback}\nGenerate from must be between start and end date";
+                valid = false;
+            }
+        }
+
+        return valid;
+    }
+}

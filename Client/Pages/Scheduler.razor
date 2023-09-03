@@ -1,0 +1,41 @@
+﻿@page "/scheduler"
+@using CogniFitRepo.Client.HttpServices;
+@using CogniFitRepo.Client.Shared.HelperClasses
+@using CogniFitRepo.Client.Shared.Scheduler;
+@using CogniFitRepo.Shared.DataTransferObjects
+@using System.Collections
+@using System.Collections.Specialized
+@inject DialogService DialogService
+@inject IHttpClientFactory ClientFactory
+
+<PageTitle>CogniFit Scheduler</PageTitle>
+<WholeScheduler @ref=wholeScheduler OnUpdateWorkoutPrograms=GetWotkoutPrograms></WholeScheduler>
+<div class="floating-spinner">
+    @if (loading)
+    {
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+</div>
+
+@code {
+    [Inject]
+    IWorkoutProgramHttpService WorkoutProgramHttpService { get; set; }
+    WholeScheduler wholeScheduler;
+    List<WorkoutProgramDto> workoutPrograms = new List<WorkoutProgramDto>();
+    bool loading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetWotkoutPrograms();
+        StateHasChanged();
+    }
+
+    async Task GetWotkoutPrograms()
+    {
+        loading = true;
+        await Task.Delay(10);
+        workoutPrograms = (await WorkoutProgramHttpService.GetCurrentUsersWorkoutPrograms()).Data;
+        await wholeScheduler.UpdateWorkoutPrograms(workoutPrograms);
+        loading = false;
+    }
+}

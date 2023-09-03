@@ -1,0 +1,111 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Profile";
+    ViewData["ActivePage"] = ManageNavPages.Index;
+
+    var d = new DirectoryInfo(@"..\Client\wwwroot\profilepictures");
+    var fileNames = from file in d.GetFiles() select file.Name;
+}
+
+<h3>@ViewData["Title"]</h3>
+<partial name="_StatusMessage" for="StatusMessage" />
+<div class="row">
+    <div class="col">
+        <form id="profile-form" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-floating">
+                <input asp-for="Username" class="form-control" disabled />
+                <label asp-for="Username" class="form-label"></label>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.FirstName" class="form-control" autocomplete="first-name" aria-required="true" />
+                <label asp-for="Input.FirstName"></label>
+                <span asp-validation-for="Input.FirstName" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.LastName" class="form-control" autocomplete="last-name" aria-required="false" />
+                <label asp-for="Input.LastName"></label>
+                <span asp-validation-for="Input.LastName" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.IsFemale" type="checkbox" class="form-check-input" aria-required="false" />
+                Is Female
+                <span asp-validation-for="Input.IsFemale" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.PrefersMetric" type="checkbox" class="form-check-input" aria-required="false" />
+                Prefers Metric
+                <span asp-validation-for="Input.PrefersMetric" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.BirthDay" type="date" class="form-control" aria-required="true" />
+                <label asp-for="Input.BirthDay"></label>
+                <span asp-validation-for="Input.BirthDay" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.PhoneNumber" type="tel" class="form-control" aria-required="false" />
+                <label asp-for="Input.PhoneNumber"></label>
+                <span asp-validation-for="Input.PhoneNumber" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.StreetNumber" type="number" class="form-control" aria-required="false" />
+                <label asp-for="Input.StreetNumber"></label>
+                <span asp-validation-for="Input.StreetNumber" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.StreetName" class="form-control" autocomplete="street-name" aria-required="false" />
+                <label asp-for="Input.StreetName"></label>
+                <span asp-validation-for="Input.StreetName" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.ApartmentNumber" class="form-control" aria-required="false" />
+                <label asp-for="Input.ApartmentNumber"></label>
+                <span asp-validation-for="Input.ApartmentNumber" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.CityName" class="form-control" autocomplete="city-name" aria-required="false" />
+                <label asp-for="Input.CityName"></label>
+                <span asp-validation-for="Input.CityName" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.SubdivisionName" class="form-control" autocomplete="subdivision-name" aria-required="false" />
+                <label asp-for="Input.SubdivisionName"></label>
+                <span asp-validation-for="Input.SubdivisionName" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.CountryName" class="form-control" autocomplete="country-name" aria-required="false" />
+                <label asp-for="Input.CountryName"></label>
+                <span asp-validation-for="Input.CountryName" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.PostalCode" class="form-control" autocomplete="postal-code" aria-required="false" />
+                <label asp-for="Input.PostalCode"></label>
+                <span asp-validation-for="Input.PostalCode" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <textarea asp-for="Input.ProfileDescription" rows="3" class="form-control" autocomplete="Profile-Description" aria-required="false"></textarea>
+                <label asp-for="Input.ProfileDescription"></label>
+                <span asp-validation-for="Input.ProfileDescription" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <select asp-for="Input.PortraitUrl" class="form-select">
+                    <option value="" disabled>Select a Profile Picture</option>
+                    @foreach (var fileName in fileNames)
+                    {
+                        <option value="@fileName">
+                            @fileName
+                        </option>
+                    }
+                </select>
+                <label asp-for="Input.PortraitUrl"></label>
+                <span asp-validation-for="Input.PortraitUrl" class="text-danger"></span>
+            </div>
+            <button id="update-profile-button" type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,193 @@
+﻿@page "/"
+@using System.Globalization
+@using CogniFitRepo.Client.Shared.HelperClasses;
+@using CogniFitRepo.Client.Shared.Scheduler;
+@using CogniFitRepo.Shared.DataTransferObjects
+@inject Radzen.DialogService DialogService
+@using CogniFitRepo.Client.HttpServices
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Json
+@inject Radzen.DialogService DialogService
+
+<div class="header">
+    <div class="card-header" style="color: #5F54DE; background: white">
+        <img src="Logo.png" alt="CogniFit Logo" />
+        <h2>Welcome to CogniFit!</h2>
+    </div>
+</div>
+
+<PageTitle>CogniFit Home</PageTitle>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="row">
+                <div class="col-md-12">
+                    <RadzenCard>
+                        <WholeScheduler @ref=wholeScheduler SchedulerHeight="400px" MonthViewOn=false OnUpdateWorkoutPrograms=GetWorkoutPrograms></WholeScheduler>
+                    </RadzenCard>
+                </div>
+            </div>
+            <div class="row my-4">
+                <div class="col-md-12">
+                    <RadzenCard>
+                        <div class="card-header" style="background-color: #5F54DE; color: white;">
+                            <h4>Weight Snapshot</h4>
+                        </div>
+                        @if(allRecords.Count>5)
+                        {
+                            <ProgressChart allRecords="@allRecords.TakeLast(5).ToList()"></ProgressChart>
+                        }
+                        else
+                        {
+                            <ProgressChart allRecords="@allRecords.ToList()"></ProgressChart>
+                        }
+                    </RadzenCard>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+             <RadzenCard>
+                <div class="card-header" style="background-color: #5F54DE; color: white;">
+                    <h4>Todays Workouts</h4>
+                </div>
+                <TodaysWorkoutsTable @ref=todaysWorkoutsTable OnUpdateWorkouts=GetWorkoutPrograms></TodaysWorkoutsTable>
+            </RadzenCard>
+              <div class="col-md-12">
+                    <RadzenCard>
+                        <div class="card-header" style="background-color: #5F54DE; color: white;">
+                            <h4>Stats</h4>
+                        </div>
+                        <BmiGauge HeightCm = "@recentHeight" WeightKg="@recentWeight"/>
+                    </RadzenCard>
+                </div>
+        </div>
+    </div>
+</div>
+<div class="floating-spinner">
+    @if (loading)
+    {
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+</div>
+
+@code
+{
+    [Inject]
+    IApplicationUserHttpService ApplicationUserHttpService { get; set; }
+    [Inject]
+    IWorkoutProgramHttpService WorkoutProgramHttpService { get; set; }
+    WholeScheduler wholeScheduler;
+    List<WorkoutProgramDto> workoutPrograms = new List<WorkoutProgramDto>();
+    bool loading = true;
+
+    TodaysWorkoutsTable todaysWorkoutsTable;
+    List<WorkoutDto> todaysWorkouts = new List<WorkoutDto>();
+
+    RadzenChart chart = new RadzenChart();
+    public List<BiometricInformationSnapshotDto> allRecords = new List<BiometricInformationSnapshotDto>();
+    public List<BiometricInformationSnapshotDto> results;
+    ApplicationUserDto user;
+
+    float recentWeight = 0.1f;
+    float recentHeight = 0.1f;
+
+    [Inject]
+    IBiometricInformationHttpService BiometricInformationHttpService { get; set; }
+
+    double bmi = 0;
+
+
+    public async Task GetAllBiometric()
+    {
+        allRecords = new List<BiometricInformationSnapshotDto>();
+        var response = await BiometricInformationHttpService.GetCurrentUserBiometricInformations();
+        allRecords= response.Data;
+
+        await Task.Delay(750);
+
+        await ReorderList(allRecords).
+        ContinueWith(x=>SetRecentWeightHeight(allRecords));
+
+        StateHasChanged();
+
+    }
+
+    async Task GetWorkoutPrograms()
+    {
+        loading = true;
+        await Task.Delay(1);
+        workoutPrograms = (await WorkoutProgramHttpService.GetCurrentUsersWorkoutPrograms()).Data;
+        await wholeScheduler.UpdateWorkoutPrograms(workoutPrograms);
+        await GetTodaysWorkouts();
+        loading = false;
+        StateHasChanged();
+    }
+
+    async Task GetTodaysWorkouts()
+    {
+        //linq query to get all workoutDtos from the workoutPrograms that are scheduled for today
+        todaysWorkouts = workoutPrograms.SelectMany(x => x.WorkoutDtos).Where(x => x.WorkoutDateTime.Date == DateTime.Now.Date).ToList();
+        await todaysWorkoutsTable.UpdateWorkouts(todaysWorkouts);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        this.user = (await ApplicationUserHttpService.GetCurrentApplicationUser()).Data;
+        await GetAllBiometric().ContinueWith(X=>chart.Reload());
+        await GetWorkoutPrograms();
+        StateHasChanged();
+    }
+
+     //sorts the list by date
+    async Task ReorderList(List<BiometricInformationSnapshotDto> records)
+    {
+        try
+        {
+            if (records is not null)
+            {
+                foreach (BiometricInformationSnapshotDto i in records)
+                {
+                    Console.WriteLine(i.MeasurementDateTime);
+
+                }
+
+                records.Sort((x, y) => DateTime.Compare(x.MeasurementDateTime.Value, y.MeasurementDateTime.Value));
+
+                foreach (BiometricInformationSnapshotDto i in records)
+                {
+
+                    Console.WriteLine(i.MeasurementDateTime);
+
+                }
+            }
+
+        }catch (Exception ex)
+
+        {
+            // Handle the exception here
+            Console.WriteLine(ex.Message);
+        }
+
+
+    }
+
+    public async Task SetRecentWeightHeight(List<BiometricInformationSnapshotDto> records)
+{
+        // Check if the records list is null
+        if (records == null)
+        {
+            throw new ArgumentNullException(nameof(records), "The records list cannot be null.");
+        }
+
+        // Check if the records list is empty
+        if (records.Count == 0)
+        {
+            throw new ArgumentException("The records list cannot be empty.", nameof(records));
+        }
+
+        recentWeight = records[records.Count - 1].WeightKg.Value;
+        recentHeight = records[records.Count - 1].HeightCm.Value;
+}
+}
+

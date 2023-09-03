@@ -1,0 +1,368 @@
+﻿@page "/progress"
+@using System.Globalization
+@using CogniFitRepo.Shared.DataTransferObjects
+@inject Radzen.DialogService DialogService
+@using CogniFitRepo.Client.HttpServices
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Json
+@inject Radzen.DialogService DialogService
+
+
+<PageTitle>CogniFit Progress Tracker</PageTitle>
+
+<div>
+    <h3> Progress Tracker</h3>
+</div>
+
+
+
+<!--Line chart-->
+<div class="container">
+    <div class="flex-column">
+        <div class="col-sm-6 my-5" style = "width: 60%;">
+        <ProgressChart allRecords = "@allRecords" chart = "@chart"/>
+        </div>
+    </div>
+</div>
+
+
+
+<!--Populate the card list of weight records-->
+<div class="container">
+    <div class="row">
+        <div class="col-md-6">
+         <!--Buttons at the top of the panel-->
+            <div style="bottom: 12px; right: 12px;">
+                    <RadzenButton Text="@editButtonText" Click="ToggleEdit"></RadzenButton>
+                     @if (isEditing)
+                        {               
+                            <RadzenButton Text="Add New Record" ButtonStyle="ButtonStyle.Primary" Click=@ShowInlineDialog />
+                
+                            
+                        }
+             </div>
+               
+             <!--History Card List Section-->
+            <div class="overflow-auto" style="height: 500px;">
+
+            <RadzenCard>
+
+            <!--loops through the weightHistoryList-->
+            
+            @if(allRecords != null)
+            {
+                @for (int i = allRecords.Count - 1; i >= 0; i--)
+                {
+                    var record = allRecords[i];
+                    var prevRecord = i > 0 ? allRecords[i - 1] : null;
+                    var cardClass = "";
+                    var imgPath = "/progressIcons/GrayCircle.png";
+                    if (prevRecord != null)
+                    {
+                                <!--Set Card and Icon Styling based on if there's weight lost/gained/same from previous record-->
+                                if (record.WeightKg < prevRecord.WeightKg)
+                                {
+                                    cardClass = "card-green";
+                                    imgPath = "/progressIcons/Arrow-Green.png";
+
+                                }
+                                else if (record.WeightKg > prevRecord.WeightKg)
+                                {
+                                    cardClass = "card-red";
+                                    imgPath = "/progressIcons/Arrow-Red.png";
+
+                                }
+                                else
+                                {
+                                    cardClass = "card-gray";     
+
+                        }
+                    }
+                    <!--fills in the card with the information-->
+                    <div class="rz-p-0 rz-p-md-0">
+                        <RadzenCard Variant="Radzen.Variant.Filled" Class="@($"rz-my-0 {cardClass}")" Style="max-width: 420px; position: relative;">
+                            <RadzenStack Orientation="Radzen.Orientation.Horizontal" JustifyContent="Radzen.JustifyContent.Start" Gap="1rem" Class="rz-p-4">
+                               <RadzenImage Path="@imgPath" Style="width: 75px; height: 75px; border-radius: 50%;" />
+
+                                <RadzenStack Gap="0">
+                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-my-1">Date</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1"><b>@FormatAsDayMonth(@record.MeasurementDateTime)</b></RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-my-1">Weight</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1"><b>@record.WeightKg Kg</b></RadzenText>
+                                </RadzenStack>
+                            </RadzenStack>
+                            @if (isEditing)
+                            {
+                                <div style="position: absolute; bottom: 8px; right: 8px;">
+                                    <RadzenButton Icon="delete" Text="Remove" Size="ButtonSize.Small" Click="@(x => RemoveRecord(@record))"></RadzenButton>
+                                </div>
+                            }
+                        </RadzenCard>
+                    </div>
+                        }
+                    }else
+                    {
+                         <p>No data available.</p>
+                    }
+            </RadzenCard>
+            </div>
+        </div>
+
+
+        <div class="col-md-6">
+            <!--Creates the bmi guage-->
+            <RadzenCard>
+            <div class="col-sm-12 col-lg-12 my-3 my-lg-5">
+               <BmiGauge WeightKg = "@recentWeight" HeightCm = "@recentHeight"/>
+            </div>
+        </RadzenCard>
+    
+        
+
+        </div>
+
+    </div>
+
+</div>
+
+<style>
+    
+.card-green {
+    background-color: #d4edda;
+}
+
+.card-red {
+    background-color: #f8d7da;
+}
+
+.card-gray {
+    background-color: #f1f1f1;
+}
+</style>
+
+
+@code {
+    [Inject]
+    IApplicationUserHttpService ApplicationUserHttpService{ get; set; }
+    public DateTime newDate = DateTime.Today;
+    public float recentWeight = 0.1f;
+    public float recentHeight = 0.1f;
+    public float newWeight = 0; 
+    public float newHeight = 0;
+    RadzenChart chart = new RadzenChart();
+    public bool isEditing = false;
+    public string editButtonText = "Edit";
+    public List<BiometricInformationSnapshotDto> allRecords;
+    public List<BiometricInformationSnapshotDto> results;
+    ApplicationUserDto user; 
+
+    [Inject]
+    IBiometricInformationHttpService BiometricInformationHttpService { get; set; }
+    [Inject]
+    public ILogger<Progress> Logger { get; set; }
+
+   
+
+    public async Task GetAllBiometric()
+    {
+        Logger.LogInformation("Getting all biometric information.");
+
+        var response = await BiometricInformationHttpService.GetCurrentUserBiometricInformations();
+        allRecords= response.Data;
+
+        //give is a moment to make sure it gets all records
+        await Task.Delay(750);
+
+        //reorder the list and then continue by setting teh height and weights
+        await ReorderList(allRecords).
+        ContinueWith(x=>SetRecentWeightHeight(allRecords));
+
+        StateHasChanged();
+
+         Logger.LogInformation("Finished getting all biometric information.");
+    }
+
+    public async Task SetRecentWeightHeight(List<BiometricInformationSnapshotDto> records)
+{
+        // Check if the records list is null
+        if (records == null)
+        {
+            throw new ArgumentNullException(nameof(records), "The records list cannot be null.");
+        }
+
+        // Check if the records list is empty
+        if (records.Count == 0)
+        {
+            throw new ArgumentException("The records list cannot be empty.", nameof(records));
+        }
+
+        recentWeight = records[records.Count - 1].WeightKg.Value;
+        recentHeight = records[records.Count - 1].HeightCm.Value;
+       
+}
+
+
+  public void ToggleEdit()
+{
+
+    isEditing = !isEditing;
+    editButtonText = isEditing ? "Done" : "Edit";
+}
+
+    //launches the popup for the entry of a new record 
+    async Task ShowInlineDialog()
+{
+    var result = await DialogService.OpenAsync("Record New Weight", ds =>
+    @<RadzenStack Gap="1.5rem">
+        <RadzenLabel Text="Date" />
+        <input type="Date" @bind-value=newDate />
+        <RadzenLabel Text="Weight (kg)" />
+        <RadzenNumeric @bind-Value="@newWeight" Min="0" />
+        <RadzenLabel Text="Height (cm)" />
+        <RadzenNumeric @bind-Value="@newHeight" Min="0" />
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenStack Orientation="Orientation.Horizontal">
+                <RadzenButton Text="Add" Click="@(() => {AddRecord(allRecords); ds.Close(false); })" Style="width: 80px;" />
+                <RadzenButton Text="Cancel" Click="() => ds.Close(false)" ButtonStyle="ButtonStyle.Light" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenStack>
+        );
+    }
+
+    //adds to the history list, reorders the list based on date order, reloads the chart
+    public async Task AddRecord(List<BiometricInformationSnapshotDto> records)
+    {
+        try
+        {
+            // Input validation
+            if (newDate > DateTime.Today)
+            {
+                return;
+            }
+            if (newWeight <= 0 || newHeight <= 0)
+            {
+                return;
+            }
+
+            // Check if there's already a record with the same date
+            var existingRecord = records.FirstOrDefault(x => x.MeasurementDateTime == newDate);
+            if (existingRecord is not null)
+            {
+                try
+                {
+                    //update the found record with
+                    await UpdateRecord(existingRecord);
+                    Logger.LogInformation("Record updated" );
+                }
+                catch (Exception ex)
+                {
+                    // Handle the exception here
+                    Logger.LogInformation("Record updating failed" );
+                }
+            }
+            else
+            {
+                try
+                {
+
+                    BiometricInformationSnapshotDto newRecord = new BiometricInformationSnapshotDto { UserId = user.Id, MeasurementDateTime = newDate, WeightKg = newWeight, HeightCm = newHeight };
+                    records.Add(newRecord);
+                    await CreateRecord(newRecord);
+                    Logger.LogInformation("Record created");
+
+                }
+                catch (Exception ex)
+                {
+                    // Handle the exception here
+                    Logger.LogInformation("Record creation failed");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log the error and display an error message to the user
+            Logger.LogInformation("Record change failed");
+        }
+    }
+
+
+
+    //formats dates to just show day and month
+    public string FormatAsDayMonth(object value)
+    {
+        if (value != null)
+        {
+            return Convert.ToDateTime(value).ToString("dd-MMM-yy");
+        }
+
+        return string.Empty;
+    }
+
+    //sorts the list by date
+    public async Task ReorderList(List<BiometricInformationSnapshotDto> records)
+    {
+        try
+        {
+            if (records is not null)
+            {
+                records.Sort((x, y) => DateTime.Compare(x.MeasurementDateTime.Value, y.MeasurementDateTime.Value));
+
+            }
+
+        }catch (Exception ex)
+
+        {
+            // Handle the exception here
+            Logger.LogInformation("Ordering list failed" );
+        }
+
+
+    }
+
+    //Removes a date entry from the history
+    public async Task RemoveRecord(BiometricInformationSnapshotDto record)
+    {
+        allRecords.Remove(record);
+
+        await BiometricInformationHttpService.DeleteBiometricInformation(record.Id)
+        .ContinueWith(x => GetAllBiometric()).ContinueWith(x=>chart.Reload());
+
+    }
+
+
+    protected override async void OnInitialized()
+    {
+        allRecords = new List<BiometricInformationSnapshotDto>();
+
+        await GetAllBiometric().ContinueWith(X=>chart.Reload());
+
+        Logger.LogInformation("Progress page initialized");
+
+        newHeight = recentHeight;
+        newWeight = recentWeight;
+        this.user = (await ApplicationUserHttpService.GetCurrentApplicationUser()).Data;
+
+    }
+
+    public async Task UpdateRecord(BiometricInformationSnapshotDto existingRecord)
+    {
+        // Overwrite the existing record
+        existingRecord.WeightKg = newWeight;
+        existingRecord.HeightCm = newHeight;
+        await BiometricInformationHttpService.UpdateBiometricInformation(existingRecord.Id, existingRecord)
+        .ContinueWith(x => GetAllBiometric())
+        .ContinueWith(x=>chart.Reload());
+
+    }
+
+    public async Task CreateRecord(BiometricInformationSnapshotDto newRecord)
+    {
+        await BiometricInformationHttpService.CreateBiometricInformation(newRecord)
+                        .ContinueWith(x => GetAllBiometric())
+                        .ContinueWith(x => chart.Reload());
+    }
+}
+
+
+

@@ -1,0 +1,15 @@
+﻿.floating-spinner {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    margin: 1rem;
+}
+.card-header {
+    display: flex;
+    align-items: center;
+}
+
+    .card-header img {
+        height: 50px;
+        margin-right: 10px;
+    }

@@ -1,0 +1,235 @@
+﻿@using CogniFitRepo.Client.HttpServices;
+@using CogniFitRepo.Client.Shared.HelperClasses;
+@using CogniFitRepo.Shared.DataTransferObjects;
+<div class="row bg-purple p-3 rounded-10">
+    <div class="col-1 d-flex justify-content-start">
+        <button class="btn btn-btn-success" @onclick="ScrollToPrevWorkoutProgram" type="button">
+            <span class="carousel-control-prev-icon"></span>
+        </button>
+    </div>
+    <div class="col">
+        <div class="row">
+            @for (int i = 0; i < appointmentLists.Count; i++)
+            {
+                int j = i;
+                <div class="@(appointmentListsIndex == j ? "" : "d-none")">
+                    @if (i == 0)
+                    {
+                        <h3 class="text-center text-white">All</h3>
+                    }
+                    else
+                    {
+                        <div class="row">
+                            <div class="col d-inline-flex justify-content-center @(!editMode ? "" : "d-none")">
+                                <h3 class="text-center text-white">@WorkoutPrograms[j-1].Name</h3>
+                                <button type="button" @onclick="()=>SetEditMode(true)" class="btn btn-sm">
+                                    <RadzenIcon Icon="open_in_new" class="text-white" /><span></span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row mb-2 @(editMode ? "" : "d-none")">
+                            <div class="col d-flex justify-content-center">
+                                <button type="button" @onclick="(e)=>EditWorkoutProgram(WorkoutPrograms[j-1], editWorkoutProgramNameInput, editWorkoutProgramStartDate, editWorkoutProgramEndDate)" class="btn btn-success">
+                                    Save
+                                </button>
+                                <input @bind-value=editWorkoutProgramNameInput type="text" class="form-control" style="width: 100px;" />
+                                <input type="date" @bind-value=editWorkoutProgramStartDate class="form-control date-input">
+                                <input type="date" @bind-value=editWorkoutProgramEndDate class="form-control date-input">
+                                <button type="button" @onclick="()=>SetEditMode(false)" class=" btn btn-primary">Cancel</button>
+                                <button type="button" @onclick="()=>DeleteWorkoutProgram(WorkoutPrograms[j-1])" class=" btn btn-danger">Delete</button>
+                            </div>
+                            <div class="text-danger text-center">
+                                @workoutProgramDatesFeedback
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <div class="row justify-content-center">
+            <div class="col text-center">
+                <div class="btn-group">
+                    @for (int i = 0; i < appointmentLists.Count; i++)
+                    {
+                        int j = i;
+                        @if (i == 0)
+                        {
+                            <button type="button" @onclick="()=>ScrollToWorkoutProgram(j)"
+                                    class="btn btn-outline-light @(appointmentListsIndex == j ? "active" : "")">
+                                All
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button" @onclick="()=>ScrollToWorkoutProgram(j)"
+                                    class="btn btn-outline-light d-block @(appointmentListsIndex ==  j? "active" : "")">
+                                @WorkoutPrograms[j-1].Name
+                            </button>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-1 d-flex justify-content-end">
+        <button class="btn btn-btn-success" @onclick="ScrollToNextWorkoutProgram" type="button">
+            <span class="carousel-control-next-icon"></span>
+        </button>
+    </div>
+</div>
+
+@code {
+    [Inject]
+    public IWorkoutProgramHttpService WorkoutProgramHttpService { get; set; }
+
+    [Parameter]
+    public EventCallback OnUpdateWorkoutPrograms { get; set; }
+
+    [Parameter]
+    public EventCallback<List<AppointmentObject>> OnChangeCurrentAppointments { get; set; }
+
+    [Parameter]
+    public List<WorkoutProgramDto> WorkoutPrograms { get; set; } = new List<WorkoutProgramDto>();
+
+    bool editMode = false;
+    string editWorkoutProgramNameInput = "";
+    DateTime editWorkoutProgramStartDate = DateTime.Now;
+    DateTime editWorkoutProgramEndDate = DateTime.Now;
+    string workoutProgramDatesFeedback = "";
+
+    public int appointmentListsIndex = 0;
+    List<List<AppointmentObject>> appointmentLists = new List<List<AppointmentObject>>() { new List<AppointmentObject>() };
+
+    async protected override Task OnInitializedAsync()
+    {
+        SetAppointmentLists();
+    }
+
+    public async Task UpdateWorkoutPrograms(List<WorkoutProgramDto> workoutPrograms)
+    {
+        WorkoutPrograms = workoutPrograms;
+        SetAppointmentLists();
+    }
+
+    public async Task SetAppointmentLists()
+    {
+        //write name of each workout program in console
+        foreach (WorkoutProgramDto workoutProgram in WorkoutPrograms)
+        {
+            Console.WriteLine(workoutProgram.Name);
+        }
+        Console.WriteLine("x");
+
+
+        appointmentLists = new List<List<AppointmentObject>>();
+        List<AppointmentObject> tempAllAppointments = new List<AppointmentObject>();
+        foreach (WorkoutProgramDto workoutProgram in WorkoutPrograms)
+        {
+            List<AppointmentObject> tempAppointments = new List<AppointmentObject>();
+            foreach (WorkoutDto workout in workoutProgram.WorkoutDtos)
+            {
+                //text ends with missed if past today and not completed
+                //ends with completed if completed
+                string text = $"{workoutProgram.Name} - {workout.WorkoutDateTime.DayOfWeek.ToString()}";
+                text = $"{text}{(workout.WorkoutDateTime < DateTime.Now.AddDays(-1) && !workout.IsComplete ? " - Missed" : "")}";
+                text = $"{text}{(workout.IsComplete ? " - Completed" : "")}";
+
+                //add appointment to both lists
+                tempAppointments.Add(new AppointmentObject
+                    {
+                        Start = workout.WorkoutDateTime,
+                        End = workout.WorkoutDateTime.AddDays(1),
+                        Text = text,
+                        WorkoutProgramName = workoutProgram.Name,
+                        Workout = workout
+                    });
+                tempAllAppointments.Add(new AppointmentObject
+                    {
+                        Start = workout.WorkoutDateTime,
+                        End = workout.WorkoutDateTime.AddDays(1),
+                        Text = text,
+                        WorkoutProgramName = workoutProgram.Name,
+                        Workout = workout
+                    });
+            }
+            appointmentLists.Add(tempAppointments);
+        }
+        appointmentLists.Insert(0, tempAllAppointments);
+        await OnChangeCurrentAppointments.InvokeAsync(appointmentLists[appointmentListsIndex]);
+    }
+
+    void SetEditMode(bool value)
+    {
+        editMode = value;
+        if (value == true)
+        {
+            if (appointmentListsIndex != 0)
+            {
+                editWorkoutProgramNameInput = WorkoutPrograms[appointmentListsIndex - 1].Name;
+                editWorkoutProgramStartDate = WorkoutPrograms[appointmentListsIndex - 1].StartDate;
+                editWorkoutProgramEndDate = WorkoutPrograms[appointmentListsIndex - 1].EndDate;
+            }
+        }
+    }
+
+    void ScrollToWorkoutProgram(int index)
+    {
+        appointmentListsIndex = index;
+        OnChangeCurrentAppointments.InvokeAsync(appointmentLists[appointmentListsIndex]);
+        SetEditMode(false);
+    }
+
+    void ScrollToNextWorkoutProgram()
+    {
+        appointmentListsIndex++;
+        appointmentListsIndex %= appointmentLists.Count;
+        OnChangeCurrentAppointments.InvokeAsync(appointmentLists[appointmentListsIndex]);
+        SetEditMode(false);
+    }
+
+    void ScrollToPrevWorkoutProgram()
+    {
+        appointmentListsIndex--;
+        if (appointmentListsIndex < 0)
+            appointmentListsIndex = appointmentLists.Count - 1;
+        OnChangeCurrentAppointments.InvokeAsync(appointmentLists[appointmentListsIndex]);
+        SetEditMode(false);
+    }
+
+    //Edit name of workout program
+    void EditWorkoutProgram(WorkoutProgramDto workoutProgram, string newName, DateTime newStartDate, DateTime newEndDate)
+    {
+        workoutProgramDatesFeedback = "";
+        if (newStartDate > newEndDate)
+        {
+            workoutProgramDatesFeedback = "Start date must be before end date";
+            return;
+        }
+        //check if workout programs workout dtos are within the new start and end dates with linq query
+        if (workoutProgram.WorkoutDtos.Any(workout => workout.WorkoutDateTime < newStartDate || workout.WorkoutDateTime > newEndDate))
+        {
+            workoutProgramDatesFeedback = "Workouts must be within the start and end dates";
+            return;
+        }
+        workoutProgram.Name = newName;
+        workoutProgram.StartDate = newStartDate;
+        workoutProgram.EndDate = newEndDate;
+        WorkoutProgramHttpService.UpdateWorkoutProgram(workoutProgram.Id, workoutProgram)
+        .ContinueWith(async (task) =>
+        {
+            await OnUpdateWorkoutPrograms.InvokeAsync();
+        });
+        SetEditMode(false);
+    }
+
+    async Task DeleteWorkoutProgram(WorkoutProgramDto workoutProgram)
+    {
+        await WorkoutProgramHttpService.DeleteWorkoutProgram(workoutProgram.Id)
+        .ContinueWith(async (task) =>
+        {
+            await OnUpdateWorkoutPrograms.InvokeAsync();
+        });
+        appointmentListsIndex = 0;
+    }
+
+}

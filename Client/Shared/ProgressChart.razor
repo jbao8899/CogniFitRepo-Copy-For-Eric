@@ -1,0 +1,34 @@
+﻿@using System.Globalization
+@using CogniFitRepo.Shared.DataTransferObjects
+@inject Radzen.DialogService DialogService
+@using CogniFitRepo.Client.HttpServices
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Json
+@inject Radzen.DialogService DialogService
+
+
+
+@if (allRecords != null)
+{
+    <RadzenChart @ref="chart">
+        <RadzenLineSeries Data="@allRecords.TakeLast(14)" CategoryProperty="MeasurementDateTime" Title="Weight" LineType="LineType.Solid" ValueProperty="WeightKg">
+            <RadzenMarkers MarkerType="MarkerType.Square" />
+            <RadzenSeriesDataLabels Visible="false" />
+        </RadzenLineSeries>
+        <RadzenCategoryAxis Padding="20" />
+        <RadzenGridLines Visible="true" />
+    </RadzenChart>
+}
+else
+{
+    <p>No data available.</p>
+}
+    
+
+@code {
+    [Parameter]
+    public List<BiometricInformationSnapshotDto> allRecords{ get; set; }
+
+    [Parameter]
+    public RadzenChart chart { get; set; }
+}

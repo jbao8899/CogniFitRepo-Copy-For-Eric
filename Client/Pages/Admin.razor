@@ -1,0 +1,70 @@
+﻿@page "/admin"
+@using CogniFitRepo.Client.HttpServices;
+@using CogniFitRepo.Shared.DataTransferObjects;
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<h3>Admin</h3>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th scope="col">#</th>
+            <th scope="col">First</th>
+            <th scope="col">Last</th>
+            <th scope="col">Username</th>
+            <th scope="col"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach(ApplicationUserDto user in users)
+        {
+            <tr>
+                <th scope="row">@user.Id</th>
+                <td>@(user.FirstName ?? "-No First Name-")</td>
+                <td>@(user.LastName ?? "-No Last Name-")</td>
+                <td>@(user.UserName ?? "-No Last Name - Something is Wrong")</td>
+                @if(user.Id != userSelf.Id)
+                {
+                    <td><button class="btn btn-danger" @onclick="() => DeleteUser(user)">Delete</button></td>
+                }
+                else
+                {
+                    <td></td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    [Inject]
+    IApplicationUserHttpService ApplicationUserHttpService { get; set; }
+
+    ApplicationUserDto userSelf;
+    List<ApplicationUserDto> users = new List<ApplicationUserDto>();
+
+    protected override async void OnInitialized()
+    {
+        Task<AuthenticationState> authStateTask = AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var tempuser = (await authStateTask).User;
+        if (!tempuser.IsInRole("admin"))
+        {
+            Navigation.NavigateTo("");
+        }
+
+        this.userSelf = (await ApplicationUserHttpService.GetCurrentApplicationUser()).Data;
+        this.users = (await ApplicationUserHttpService.GetApplicationUsers()).Data;
+        await Task.Delay(1);
+        StateHasChanged();
+    }
+
+    private async Task DeleteUser(ApplicationUserDto user)
+    {
+        await ApplicationUserHttpService.DeleteApplicationUser(user.Id);
+        await Task.Delay(100);
+        this.users = (await ApplicationUserHttpService.GetApplicationUsers()).Data;
+        await Task.Delay(1);
+        StateHasChanged();
+    }
+}

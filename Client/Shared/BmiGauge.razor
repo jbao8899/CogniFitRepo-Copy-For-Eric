@@ -1,0 +1,43 @@
+﻿ 
+<RadzenRadialGauge Style="width: 100%; height: 300px;">
+                    <RadzenRadialGaugeScale StartAngle="-150" EndAngle="150" Step="20" Min="0" Max="50" TickPosition=0>
+                        <RadzenRadialGaugeScalePointer Value="@CalculateBMI(@WeightKg,@HeightCm)" Length="0.6" ShowValue=@true>
+                            <Template Context="pointer">
+                                <h5>
+                                    BMI: @pointer.Value
+                                </h5>
+                            </Template>
+                        </RadzenRadialGaugeScalePointer>
+                        <RadzenRadialGaugeScaleRange From="0" To="18.5" Fill="blue" />
+                        <RadzenRadialGaugeScaleRange From="18.5" To="24.9" Fill="green" />
+                        <RadzenRadialGaugeScaleRange From="25" To="29.9" Fill="orange" />
+                        <RadzenRadialGaugeScaleRange From="30" To="50" Fill="red" />
+                    </RadzenRadialGaugeScale>
+                </RadzenRadialGauge>
+@code {
+
+    [Parameter]
+    public float HeightCm{ set; get; }
+
+    [Parameter]
+    public float WeightKg{ set; get; }
+
+
+    public static double CalculateBMI(float WeightKg, float HeightCm)
+    {
+        if (HeightCm <= 0) // Check for zero or negative height
+        {
+            throw new DivideByZeroException("Height must be greater than zero.");
+        }
+
+        if (WeightKg <=0) // Check for negative weight
+        {
+            throw new ArgumentException("Can't weight nothing");
+        }
+
+        float heightInMeters = HeightCm / 100;
+        float bmi = WeightKg / (heightInMeters * heightInMeters);
+        return Math.Round(bmi, 2);
+    }
+
+}

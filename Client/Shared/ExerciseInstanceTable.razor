@@ -1,0 +1,81 @@
+﻿@using CogniFitRepo.Client.HttpServices
+@using CogniFitRepo.Shared.DataTransferObjects
+@foreach (var exerciseInstance in CurrentWorkout.ExerciseInstanceDtos)
+{
+<table class="table table-sm mt-2">
+    <thead>
+        <tr>
+            <th scope="col">@exerciseInstance.WorkoutSequenceNumber</th>
+            <th scope="col" class="text-break">@exerciseInstance.ExerciseName</th>
+            <th scope="col">
+                <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind-value=exerciseInstance.IsComplete checked="@(exerciseInstance.IsComplete)"  title="Complete?">
+                </div>
+            </th>
+            <th scope="col">
+                <div class="row justify-content-end mx-2">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">Add Property</button>
+                    <ul class="dropdown-menu dropdown-menu-start property-dropdown-width">
+                    @foreach(var property in exerciseProperties)
+                    {
+                        <li><a class="dropdown-item" @onclick='()=>AddProperty(exerciseInstance, property)'>@property.Name</a></li>
+                    }
+                    </ul>
+                </div>
+            </th>
+            <th scope="col"><button class="btn btn-sm btn-outline-success" @onclick='()=>RemoveExercise(exerciseInstance)'>Remove</button></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach(var property in exerciseInstance.ExerciseInstance_ExercisePropertyDtos)
+        {
+            <tr>
+                <th scope="row"></th>
+                <td>@property.Name</td>
+                <td></td>
+                <td><div class="row justify-content-end mx-2"><input type="number" class="form-control form-control-sm number-input" @bind-value=property.Amount></div></td>
+                <td><button class="btn btn-sm btn-outline-success" @onclick='()=>RemoveProperty(exerciseInstance, property)'>Remove</button></td>
+            </tr>
+        }
+    </tbody>
+</table>
+}
+
+@code {
+    [Inject]
+    IExercisePropertyHttpService ExercisePropertyHttpService { get; set; }
+
+    [Parameter]
+    public WorkoutDto CurrentWorkout { get; set; }
+
+    [Parameter]
+    public EventCallback<(ExerciseInstanceDto, ExercisePropertyDto)> OnAddProperty { get; set; }
+
+    [Parameter]
+    public EventCallback<ExerciseInstanceDto> OnRemoveExercise { get; set; }
+
+    [Parameter]
+    public EventCallback<(ExerciseInstanceDto, ExerciseInstance_ExercisePropertyDto)> OnRemoveProperty { get; set; }
+
+    List<ExercisePropertyDto> exerciseProperties;
+
+    protected override async void OnInitialized()
+    {
+        exerciseProperties = (await ExercisePropertyHttpService.GetExerciseProperties()).Data;
+    }
+
+    public async Task AddProperty(ExerciseInstanceDto exerciseInstance, ExercisePropertyDto exerciseProperty)
+    {
+        await OnAddProperty.InvokeAsync((exerciseInstance, exerciseProperty));
+    }
+
+    public async Task RemoveExercise(ExerciseInstanceDto exerciseInstance)
+    {
+        await OnRemoveExercise.InvokeAsync(exerciseInstance);
+    }
+
+    public async Task RemoveProperty(ExerciseInstanceDto exerciseInstance, ExerciseInstance_ExercisePropertyDto exerciseProperty)
+    {
+        await OnRemoveProperty.InvokeAsync((exerciseInstance, exerciseProperty));
+    }
+}

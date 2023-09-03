@@ -1,0 +1,99 @@
+﻿@using CogniFitRepo.Client.HttpServices;
+@using CogniFitRepo.Shared.DataTransferObjects;
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">CogniFit</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="oi oi-home" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+         <div class="nav-item px-3">
+            <NavLink class="nav-link" href="search">
+                <span class="oi oi-magnifying-glass" aria-hidden="true"></span> Search
+            </NavLink>
+        </div>
+       <div class="nav-item px-3">
+            <NavLink class="nav-link" href="scheduler">
+                <span class="oi oi-calendar" aria-hidden="true"></span> Scheduler
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="progress">
+                <span class="oi oi-graph" aria-hidden="true"></span> Progress
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="authentication/profile">
+                @if(user!=null && user.PortraitPath!=null)
+                {
+                    <img width="30px" height="auto" class="rounded-circle me-1" src=@($"/profilepictures/{user.PortraitPath}") />
+                }
+                else
+                {
+                    <span class="oi oi-person" aria-hidden="true"></span>
+                }
+                Profile
+            </NavLink>
+        </div>
+        @if(user!=null && IsAdmin)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin">
+                    <span class="oi oi-key" aria-hidden="true"></span> Admin
+                </NavLink>
+            </div>
+        }
+    </nav>
+</div>
+
+@code {
+    [Inject]
+    IApplicationUserHttpService  ApplicationUserHttpService { get; set; }
+
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    ApplicationUserDto user;
+    bool IsAdmin = false;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    protected override async void OnInitialized()
+    {
+        Task<AuthenticationState> authStateTask = AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var tempuser = (await authStateTask).User;
+        if (!tempuser.Identity.IsAuthenticated)
+        {
+            Navigation.NavigateTo("authentication/login");
+        }
+        else
+        {
+            this.user = (await ApplicationUserHttpService.GetCurrentApplicationUser()).Data;
+            if (tempuser.IsInRole("admin"))
+            {
+                IsAdmin = true;
+            }
+        }
+        await Task.Delay(1);
+        StateHasChanged();
+    }
+}

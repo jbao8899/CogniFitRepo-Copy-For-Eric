@@ -1,0 +1,66 @@
+﻿@using System.IO;
+@{
+    UserManager<ApplicationUser> userManager = (UserManager<ApplicationUser>)Context.RequestServices.GetService(typeof(UserManager<ApplicationUser>));
+    var user = await userManager.GetUserAsync(User);
+
+    if (ViewData.TryGetValue("ParentLayout", out var parentLayout) && parentLayout !=  null)
+    {
+        Layout = parentLayout.ToString();
+    }
+    else
+    {
+        Layout = "/Areas/Identity/Pages/_Layout.cshtml";
+    }
+}
+
+<div class="card">
+    <div class="card-header" style="background-color: #5F54DE; color: white;">
+        <h4 class="card-title">Profile</h4>
+    </div>
+    <div style="position: relative;">
+        <div style="position: absolute; top: 12px; right: 12px;">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">Manage your account</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="col-md-2">
+            <img width="150px" height="auto" src=@(user.Portrait != null ? $"/profilepictures/{user.Portrait.Path}" : "https://via.placeholder.com/150")>
+        </div>
+        <div class="col-md-10">
+            <h3>@(user.FirstName??"") @(user.LastName??"")</h3>
+        </div>
+    </div>
+</div>
+<div class="card mt-5">
+    <div class="card-header" style="background-color: #5F54DE; color: white;">
+        <h4 class="card-title">Profile Description</h4>
+    </div>
+    <div class="card-body">
+        <p>@user.ProfileDescription</p>
+    </div>
+</div>
+
+<div class="modal" id="exampleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Manage your account</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <partial name="_ManageNav" />
+                    </div>
+                    <div class="col-md-8">
+                        @RenderBody()
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @RenderSection("Scripts", required: false)
+}

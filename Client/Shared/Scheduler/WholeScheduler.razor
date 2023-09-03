@@ -1,0 +1,84 @@
+﻿@using CogniFitRepo.Client.HttpServices;
+@using CogniFitRepo.Client.Shared.HelperClasses
+@using CogniFitRepo.Shared.DataTransferObjects
+@using System.Collections
+@using System.Collections.Specialized
+@inject DialogService DialogService
+@inject IHttpClientFactory ClientFactory
+
+
+<AddWorkoutModal @ref=addWorkoutModal OnSaveWorkout="GetWorkoutPrograms"></AddWorkoutModal>
+<EditWorkoutModal @ref=editWorkoutModal OnSaveWorkout="GetWorkoutPrograms"></EditWorkoutModal>
+<div class="container-fluid full-page-container bg-dark-grey rounded-10">
+    <SchedulerHeader @ref=schedulerHeader OnUpdateWorkoutPrograms=GetWorkoutPrograms OnChangeCurrentAppointments=SetCurrentAppointments></SchedulerHeader>
+    <div class="row">
+        <div class="p-2">
+            <SchedulerComponent @ref=schedulerComponent CurrentAppointments=currentAppointments OnAppointmentSelect=AppointmentSelect 
+                OnSlotSelect=SlotSelect Height=@SchedulerHeight MonthViewOn=MonthViewOn WeekViewOn=WeekViewOn></SchedulerComponent>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject]
+    IWorkoutProgramHttpService WorkoutProgramHttpService { get; set; }
+
+    [Parameter]
+    public EventCallback OnUpdateWorkoutPrograms { get; set; }
+
+    [Parameter]
+    public string SchedulerHeight { get; set; } = "700px";
+
+    [Parameter]
+    public bool MonthViewOn { get; set; } = true;
+
+    [Parameter]
+    public bool WeekViewOn { get; set; } = true;
+
+    public AddWorkoutModal addWorkoutModal { get; set; }
+    public EditWorkoutModal editWorkoutModal { get; set; }
+
+    List<AppointmentObject> currentAppointments = new List<AppointmentObject>();
+    public List<WorkoutProgramDto> workoutPrograms = new List<WorkoutProgramDto>();
+
+    SchedulerHeader schedulerHeader;
+    private SchedulerComponent schedulerComponent;
+
+    public async Task GetWorkoutPrograms()
+    {
+        await OnUpdateWorkoutPrograms.InvokeAsync();
+    }
+
+    public async Task UpdateWorkoutPrograms(List<WorkoutProgramDto> workoutPrograms)
+    {
+        this.workoutPrograms = workoutPrograms;
+        await schedulerHeader.UpdateWorkoutPrograms(this.workoutPrograms);
+        StateHasChanged();
+    }
+
+    void SetCurrentAppointments(List<AppointmentObject> newCurrentAppointments)
+    {
+        currentAppointments = newCurrentAppointments;
+        StateHasChanged();
+    }
+
+    void SlotSelect(SchedulerSlotSelectEventArgs args)
+    {
+        args.Start = args.Start.Date;
+        args.End = args.End.Date;
+
+        if (schedulerHeader.appointmentListsIndex == 0)
+        {
+            addWorkoutModal.Open(args);
+        }
+        else
+        {
+            addWorkoutModal.Open(args, workoutPrograms[schedulerHeader.appointmentListsIndex - 1]);
+        }
+    }
+
+    async Task AppointmentSelect(SchedulerAppointmentSelectEventArgs<AppointmentObject> args)
+    {
+        editWorkoutModal.Open(args);
+    }
+}

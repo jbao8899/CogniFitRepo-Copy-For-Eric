@@ -1,0 +1,15 @@
+﻿.stick-to-left {
+    position: fixed;
+    left: 0;
+}
+.card-green {
+    background-color: #d4edda;
+}
+
+.card-red {
+    background-color: #f8d7da;
+}
+
+.card-gray {
+    background-color: #f1f1f1;
+}

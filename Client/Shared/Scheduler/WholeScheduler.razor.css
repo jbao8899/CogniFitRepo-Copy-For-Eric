@@ -1,0 +1,32 @@
+﻿.full-page-container {
+    height: auto;
+}
+
+.rounded-10 {
+    border-radius: 1.0rem;
+}
+
+.bg-purple {
+    background-color: #5F54DE;
+}
+
+bg-dark-grey {
+    background-color: #D9D9D9;
+}
+
+.bg-blue {
+    background-color: #699BF7;
+}
+
+.btn-outline-success.active {
+    box-shadow: none;
+}
+
+.position-relative {
+    position: relative;
+}
+
+.date-input {
+    max-width: 150px;
+    min-width: 150px;
+}

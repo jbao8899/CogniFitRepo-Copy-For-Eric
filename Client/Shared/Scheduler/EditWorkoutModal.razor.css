@@ -1,0 +1,25 @@
+﻿.rounded-10 {
+    border-radius: 1.0rem;
+}
+
+.bg-purple {
+    background-color: #5F54DE;
+}
+
+.bg-blue {
+    background-color: #699BF7;
+}
+
+.btn-outline-success.active {
+    box-shadow: none;
+}
+
+.time-input {
+    max-width: 110px;
+    min-width: 110px;
+}
+
+.date-input {
+    max-width: 150px;
+    min-width: 150px;
+}
